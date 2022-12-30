@@ -29,7 +29,7 @@ def RBF_kernel(alpha: float, beta: float) -> Callable:
     """
 
     def kern(x, y):
-        norm_2 = np.linalg.norm(x - y) ** 2
+        norm_2 = np.linalg.norm([x - y]) ** 2
         exp_val = np.exp(-1 * beta * norm_2)
         return alpha * exp_val
 
@@ -45,7 +45,7 @@ def Laplacian_kernel(alpha: float, beta: float) -> Callable:
     """
 
     def kern(x, y):
-        norm = np.linalg.norm(x - y, ord=1)
+        norm = np.linalg.norm([x - y], ord=1)
         exp_val = np.exp(-1 * beta * norm)
         return alpha * exp_val
 
@@ -59,9 +59,9 @@ def Gibbs_kernel(alpha: float, beta: float, delta: float, gamma: float) -> Calla
     """
 
     def l(x, beta, alpha, delta):
-        norm_2 = np.linalg.norm(x - delta) ** 2
+        norm_2 = np.linalg.norm([x - delta]) ** 2
         exp_val = np.exp(-1 * beta * norm_2)
-        l = alpha * exp_val
+        l = alpha * exp_val + gamma
         return l
 
     def gibbs_sqrt(l_x, l_y):
@@ -69,7 +69,7 @@ def Gibbs_kernel(alpha: float, beta: float, delta: float, gamma: float) -> Calla
         return np.sqrt(no / de)
 
     def gibbs_exp_power(x, y, l_x, l_y):
-        x_y_norm_2 = (np.norm(x - y)) ** 2
+        x_y_norm_2 = (np.linalg.norm([x - y])) ** 2
         no, de = -1 * x_y_norm_2, ((l_x ** 2) + (l_y ** 2))
         return np.exp(no / de)
 
@@ -90,7 +90,7 @@ def NN_kernel(alpha: float, beta: float) -> Callable:
     """
 
     def one_2_beta(x, beta):
-        product = np.inner(x)
+        product = np.inner(x, x)
         beta_2 = 2 * beta * (1 + product)
         return (1 + beta_2)
 
@@ -161,7 +161,7 @@ class GaussianProcess:
 
     def calculate_gram(self, X):
         n = len(X)
-        gram = np.zeros(n, n)
+        gram = np.zeros((n, n))
         for i, x_i in enumerate(X):
             for j, x_j in enumerate(X):
                 gram[i, j] = self.kernel(x_i, x_j)
@@ -225,6 +225,26 @@ class GaussianProcess:
         return part_1 + part_2 + part_3
 
 
+def plot_prior(gp, X, p):
+    plot_colors = ["teal", "darkslategrey", "cadetblue", "lightseagreen", "darkturquoise"]
+    plt.figure()
+
+    X_gram = gp.calculate_gram(X)
+    mu = np.zeros(shape=X.shape)
+    ci = np.array([np.sqrt(gp.noise + k_x[i]) for i, k_x in enumerate(X_gram)])
+    plt.plot(X, mu, color="mediumturquoise", label='prior mean', linestyle='dashed')
+    plt.fill_between(X, mu - ci, mu + ci, color="paleturquoise", alpha=.5, label='confidence interval')
+
+    random_f = np.random.multivariate_normal(mu, X_gram, 5)
+    for i, f in enumerate(random_f):
+        plt.plot(X, f, color=plot_colors[i], label=f'function:{i + 1}')
+    plt.xlabel('$x$')
+    plt.ylabel('$f(x)$')
+    plt.title(KERNEL_STRS[p[0]].format(*p[2:]))
+    plt.ylim([-5, 5])
+    plt.legend()
+    plt.show()
+
 def main():
     # ------------------------------------------------------ section 2.1
     xx = np.linspace(-5, 5, 500)
@@ -235,23 +255,23 @@ def main():
     params = [
         # Laplacian kernels
         ['Laplacian', Laplacian_kernel, 1, 0.25],  # insert your parameters, order: alpha, beta
-        ['Laplacian', Laplacian_kernel, None, None],  # insert your parameters, order: alpha, beta
-        ['Laplacian', Laplacian_kernel, None, None],  # insert your parameters, order: alpha, beta
+        ['Laplacian', Laplacian_kernel, 0.1, 0.5],  # insert your parameters, order: alpha, beta
+        ['Laplacian', Laplacian_kernel, 0.01, 4],  # insert your parameters, order: alpha, beta
 
         # RBF kernels
         ['RBF', RBF_kernel, 1, 0.25],  # insert your parameters, order: alpha, beta
-        ['RBF', RBF_kernel, None, None],  # insert your parameters, order: alpha, beta
-        ['RBF', RBF_kernel, None, None],  # insert your parameters, order: alpha, beta
+        ['RBF', RBF_kernel, 0.5, 0.05],  # insert your parameters, order: alpha, beta
+        ['RBF', RBF_kernel, 3, 10],  # insert your parameters, order: alpha, beta
 
         # Gibbs kernels
         ['Gibbs', Gibbs_kernel, 1, 0.5, 0, .1],  # insert your parameters, order: alpha, beta, delta, gamma
-        ['Gibbs', Gibbs_kernel, None, None, None, None],  # insert your parameters, order: alpha, beta, delta, gamma
-        ['Gibbs', Gibbs_kernel, None, None, None, None],  # insert your parameters, order: alpha, beta, delta, gamma
+        ['Gibbs', Gibbs_kernel, 1, 0.5, 0.1, 3],  # insert your parameters, order: alpha, beta, delta, gamma
+        ['Gibbs', Gibbs_kernel, 1, 0.5, 3, 0.25],  # insert your parameters, order: alpha, beta, delta, gamma
 
         # Neurel network kernels
         ['NN', NN_kernel, 1, 0.25],  # insert your parameters, order: alpha, beta
-        ['NN', NN_kernel, None, None],  # insert your parameters, order: alpha, beta
-        ['NN', NN_kernel, None, None],  # insert your parameters, order: alpha, beta
+        ['NN', NN_kernel, 5, 1],  # insert your parameters, order: alpha, beta
+        ['NN', NN_kernel, 0.3, 1],  # insert your parameters, order: alpha, beta
     ]
     noise = 0.05
 
@@ -264,88 +284,84 @@ def main():
         gp = GaussianProcess(k, noise)
 
         # plot prior variance and samples from the priors
-        plt.figure()
-        # todo <your code here>
-        plt.xlabel('$x$')
-        plt.ylabel('$f(x)$')
-        plt.title(KERNEL_STRS[p[0]].format(*p[2:]))
-        plt.ylim([-5, 5])
+        plot_prior(gp, xx, p)
 
-        # fit the GP to the data and calculate the posterior mean and confidence interval
-        gp.fit(x, y)
-        m, s = gp.predict(xx), 2 * gp.predict_std(xx)
+        #
+        # # fit the GP to the data and calculate the posterior mean and confidence interval
+        # gp.fit(x, y)
+        # m, s = gp.predict(xx), 2 * gp.predict_std(xx)
+        #
+        # # plot posterior mean, confidence intervals and samples from the posterior
+        # plt.figure()
+        # plt.fill_between(xx, m - s, m + s, alpha=.3)
+        # plt.plot(xx, m, lw=2)
+        # for i in range(6): plt.plot(xx, gp.sample(xx), lw=1)
+        # plt.scatter(x, y, 30, 'k')
+        # plt.xlabel('$x$')
+        # plt.ylabel('$f(x)$')
+        # plt.title(KERNEL_STRS[p[0]].format(*p[2:]))
+        # plt.ylim([-5, 5])
+        # plt.show()
 
-        # plot posterior mean, confidence intervals and samples from the posterior
-        plt.figure()
-        plt.fill_between(xx, m - s, m + s, alpha=.3)
-        plt.plot(xx, m, lw=2)
-        for i in range(6): plt.plot(xx, gp.sample(xx), lw=1)
-        plt.scatter(x, y, 30, 'k')
-        plt.xlabel('$x$')
-        plt.ylabel('$f(x)$')
-        plt.title(KERNEL_STRS[p[0]].format(*p[2:]))
-        plt.ylim([-5, 5])
-        plt.show()
-
-    # ------------------------------ question 4
-    # define range of betas
-    betas = np.linspace(.1, 15, 101)
-    noise = .15
-
-    # calculate the evidence for each of the kernels
-    evidence = [GaussianProcess(RBF_kernel(1, beta=b), noise).log_evidence(x, y) for b in betas]
-
-    # plot the evidence as a function of beta
-    plt.figure()
-    plt.plot(betas, evidence, lw=2)
-    plt.xlabel(r'$\beta$')
-    plt.ylabel('log-evidence')
-    plt.show()
-
-    # extract betas that had the min, median and max evidence
-    srt = np.argsort(evidence)
-    min_ev, median_ev, max_ev = betas[srt[0]], betas[srt[(len(evidence) + 1) // 2]], betas[srt[-1]]
-
-    # plot the mean of the posterior of a GP using the extracted betas on top of the data
-    plt.figure()
-    plt.scatter(x, y, 30, 'k', alpha=.5)
-    plt.plot(xx, GaussianProcess(RBF_kernel(1, beta=min_ev), noise).fit(x, y).predict(xx), lw=2, label='min evidence')
-    plt.plot(xx, GaussianProcess(RBF_kernel(1, beta=median_ev), noise).fit(x, y).predict(xx), lw=2,
-             label='median evidence')
-    plt.plot(xx, GaussianProcess(RBF_kernel(1, beta=max_ev), noise).fit(x, y).predict(xx), lw=2, label='max evidence')
-    plt.xlabel(r'$x$')
-    plt.ylabel(r'$f(x)$')
-    plt.legend()
-    plt.show()
-
-    # ------------------------------------------------------ section 2.2
-    # define function and parameters
-    f = lambda x: np.sin(x * 3) / 2 - np.abs(.75 * x) + 1
-    xx = np.linspace(-3, 3, 100)
-    noise = .25
-    beta = 2
-
-    # calculate the function values
-    np.random.seed(0)
-    y = f(xx) + np.sqrt(noise) * np.random.randn(len(xx))
-
-    # ------------------------------ question 5
-    # fit a GP model to the data
-    gp = GaussianProcess(kernel=RBF_kernel(1, beta=beta), noise=noise).fit(xx, y)
-
-    # calculate posterior mean and confidence interval
-    m, s = gp.predict(xx), 2 * gp.predict_std(xx)
-    print(f'Average squared error of the GP is: {average_error(m, y):.2f}')
-
-    # plot the GP prediction and the data
-    plt.figure()
-    plt.fill_between(xx, m - s, m + s, alpha=.5)
-    plt.plot(xx, m, lw=2)
-    plt.scatter(xx, y, 30, 'k', alpha=.5)
-    plt.xlabel('$x$')
-    plt.ylabel('$f(x)$')
-    plt.ylim([-3, 3])
-    plt.show()
+    # # ------------------------------ question 4
+    # # define range of betas
+    # betas = np.linspace(.1, 15, 101)
+    # noise = .15
+    #
+    # # calculate the evidence for each of the kernels
+    # evidence = [GaussianProcess(RBF_kernel(1, beta=b), noise).log_evidence(x, y) for b in betas]
+    #
+    # # plot the evidence as a function of beta
+    # plt.figure()
+    # plt.plot(betas, evidence, lw=2)
+    # plt.xlabel(r'$\beta$')
+    # plt.ylabel('log-evidence')
+    # plt.show()
+    #
+    # # extract betas that had the min, median and max evidence
+    # srt = np.argsort(evidence)
+    # min_ev, median_ev, max_ev = betas[srt[0]], betas[srt[(len(evidence) + 1) // 2]], betas[srt[-1]]
+    #
+    # # plot the mean of the posterior of a GP using the extracted betas on top of the data
+    # plt.figure()
+    # plt.scatter(x, y, 30, 'k', alpha=.5)
+    # plt.plot(xx, GaussianProcess(RBF_kernel(1, beta=min_ev), noise).fit(x, y).predict(xx), lw=2, label='min evidence')
+    # plt.plot(xx, GaussianProcess(RBF_kernel(1, beta=median_ev), noise).fit(x, y).predict(xx), lw=2,
+    #          label='median evidence')
+    # plt.plot(xx, GaussianProcess(RBF_kernel(1, beta=max_ev), noise).fit(x, y).predict(xx), lw=2, label='max evidence')
+    # plt.xlabel(r'$x$')
+    # plt.ylabel(r'$f(x)$')
+    # plt.legend()
+    # plt.show()
+    #
+    # # ------------------------------------------------------ section 2.2
+    # # define function and parameters
+    # f = lambda x: np.sin(x * 3) / 2 - np.abs(.75 * x) + 1
+    # xx = np.linspace(-3, 3, 100)
+    # noise = .25
+    # beta = 2
+    #
+    # # calculate the function values
+    # np.random.seed(0)
+    # y = f(xx) + np.sqrt(noise) * np.random.randn(len(xx))
+    #
+    # # ------------------------------ question 5
+    # # fit a GP model to the data
+    # gp = GaussianProcess(kernel=RBF_kernel(1, beta=beta), noise=noise).fit(xx, y)
+    #
+    # # calculate posterior mean and confidence interval
+    # m, s = gp.predict(xx), 2 * gp.predict_std(xx)
+    # print(f'Average squared error of the GP is: {average_error(m, y):.2f}')
+    #
+    # # plot the GP prediction and the data
+    # plt.figure()
+    # plt.fill_between(xx, m - s, m + s, alpha=.5)
+    # plt.plot(xx, m, lw=2)
+    # plt.scatter(xx, y, 30, 'k', alpha=.5)
+    # plt.xlabel('$x$')
+    # plt.ylabel('$f(x)$')
+    # plt.ylim([-3, 3])
+    # plt.show()
 
 
 if __name__ == '__main__':
