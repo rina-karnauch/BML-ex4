@@ -113,7 +113,23 @@ class GaussianProcess:
         :param kernel: the kernel to use when fitting the data/predicting
         :param noise: the sample noise assumed to be added to the data
         """
-        # todo <your code here>
+        self.kernel = kernel
+        self.noise = noise
+        self.N = 0
+        self.X = None
+        self.K = None
+        self.C = None
+        self.y = None
+        self.alpha = None
+
+    def calculate_params(self):
+        self.C = np.zeros((self.N, self.N))
+        self.K = np.zeros((self.N, self.N))
+        for i, x_i in enumerate(self.X):
+            for j, x_j in enumerate(self.X):
+                k = self.kernel(x_i, x_j)
+                self.K[i, j] = k
+                self.C[i, j] = k + self.noise
 
     def fit(self, X, y) -> 'GaussianProcess':
         """
@@ -122,8 +138,34 @@ class GaussianProcess:
         :param y: the true regression values for the samples X
         :return: the fitted model
         """
-        # todo <your code here>
+        self.y = y
+        self.X = X
+        self.N = len(self.X)
+        self.calculate_params()
+
+        cholesky = np.linalg.cholesky(self.C)
+        self.L = cholesky
+        cholesky_T = np.transpose(cholesky)
+        # A\b = x WHICH SOLVES Ax=b
+        xLy = np.linalg.solve(cholesky, y)
+        self.alpha = np.linalg.solve(cholesky_T, xLy)
         return self
+
+    def calculate_K(self, pX):
+        n = len(pX)
+        K_p = np.zeros((self.N, n))
+        for i, x_i in enumerate(self.X):
+            for j, z_j in enumerate(pX):
+                K_p[i, j] = self.kernel(x_i, z_j)
+        return K_p
+
+    def calculate_gram(self, X):
+        n = len(X)
+        gram = np.zeros(n, n)
+        for i, x_i in enumerate(X):
+            for j, x_j in enumerate(X):
+                gram[i, j] = self.kernel(x_i, x_j)
+        return gram
 
     def predict(self, X: np.ndarray) -> np.ndarray:
         """
@@ -131,8 +173,8 @@ class GaussianProcess:
         :param X: the samples to predict
         :return: the predictions for X
         """
-        # todo <your code here>
-        return None
+        K_p = self.calculate_K(X)
+        return self.alpha @ K_p
 
     def fit_predict(self, X: np.ndarray, y: np.ndarray) -> np.ndarray:
         """
@@ -150,8 +192,14 @@ class GaussianProcess:
         :param X: the samples around which to calculate the standard deviation
         :return: a numpy array with the sample (same shape as X)
         """
-        # todo <your code here>
-        return None
+        K = self.calculate_K(X)
+        K_T = np.transpose(K)
+        C_z = self.calculate_gram(X)
+        pos_mean = K_T @ self.alpha
+        # might be a problem using self.L (?)
+        pos_cov = C_z - (K_T @ self.L @ K)
+        random_f = np.random.multivariate_normal(pos_mean, pos_cov, len(X))
+        return random_f
 
     def predict_std(self, X: np.ndarray) -> np.ndarray:
         """
@@ -159,8 +207,8 @@ class GaussianProcess:
         :param X: the samples around which to calculate the standard deviation
         :return: a numpy array with the standard deviations (same shape as X)
         """
-        # todo <your code here>
-        return None
+        std = np.array([np.sqrt(self.noise + self.alpha[i]) for i, x_i in enumerate(X)])
+        return std
 
     def log_evidence(self, X: np.ndarray, y: np.ndarray) -> float:
         """
@@ -170,8 +218,11 @@ class GaussianProcess:
         :return: the log-evidence of the model under the data points
         """
         self.fit(X, y)
-        # todo <your code here>
-        return None
+        N = len(y)
+        part_1 = -1 * 0.5 * np.transpose(y) @ self.alpha
+        part_2 = -1 * 0.5 * np.log(np.linalg.det(self.L))
+        part_3 = -1 * N * 0.5 * np.log(2 * np.pi)
+        return part_1 + part_2 + part_3
 
 
 def main():
