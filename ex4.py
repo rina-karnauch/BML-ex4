@@ -280,11 +280,21 @@ def main():
         ['Gibbs', Gibbs_kernel, 5, 0.5, 2, .1],  # insert your parameters, order: alpha, beta, delta, gamma
         ['Gibbs', Gibbs_kernel, 4, 0.25, 0, 0.3],  # insert your parameters, order: alpha, beta, delta, gamma
         ['Gibbs', Gibbs_kernel, 6, 0.5, -1, 0.1],  # insert your parameters, order: alpha, beta, delta, gamma
+        # ['Gibbs', Gibbs_kernel, 5, 0.1, 0, 0.1], # quiz
+        # ['Gibbs', Gibbs_kernel, 20, 0.1, 0, 0.1] , # quiz
+        # ['Gibbs', Gibbs_kernel, 5, 5, 0, 0.1] , # quiz
+        # ['Gibbs', Gibbs_kernel, 5, 20, 0, 0.1],  # quiz
+        # ['Gibbs', Gibbs_kernel, 5, 0.5, 5, 0.1] , # quiz
+        # ['Gibbs', Gibbs_kernel, 5, 0.5, 15, 0.1] , # quiz
 
         # Neurel network kernels
         ['NN', NN_kernel, 2, 0.25],  # insert your parameters, order: alpha, beta
         ['NN', NN_kernel, 0.25, 1],  # insert your parameters, order: alpha, beta
         ['NN', NN_kernel, 1, 1],  # insert your parameters, order: alpha, beta
+        # ['NN', NN_kernel, 1, 1], # quiz
+        # ['NN', NN_kernel, 10, 1],  # quiz
+        # ['NN', NN_kernel, 0.5, 1],  # quiz
+        # ['NN', NN_kernel, 0.5, 10],  # quiz
     ]
     noise = 0.05
 
